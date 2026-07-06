@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use ruma_common::{canonical_json::CanonicalJsonObject, serde::Base64, RoomVersionId};
+use ruma_common::{
+    canonical_json::CanonicalJsonObject, room_version_rules::RoomVersionRules, serde::Base64, RoomVersionId
+};
 use ruma_signatures::{Ed25519KeyPair, PublicKeyMap, PublicKeySet, Verified};
 use rustler::Binary;
 
@@ -29,6 +31,13 @@ fn to_json_string<T: serde::Serialize>(object: &T) -> Result<String, String> {
 
 fn parse_key_pair(der: &[u8], key_version: String) -> Result<Ed25519KeyPair, String> {
     Ed25519KeyPair::from_der(der, key_version).map_err(|e| e.to_string())
+}
+
+fn parse_room_version(room_version: String) -> Result<RoomVersionRules, String> {
+    let room_version_id = RoomVersionId::try_from(room_version).map_err(|e| e.to_string())?;
+    room_version_id
+        .rules()
+        .ok_or("unknown_room_version".to_string())
 }
 
 fn parse_public_keys(
@@ -80,10 +89,7 @@ fn hash_and_sign_event<'a>(
 
     let key_pair = parse_key_pair(key_pair.as_slice(), key_version)?;
 
-    let room_version_id = RoomVersionId::try_from(room_version).map_err(|e| e.to_string())?;
-    let rules = room_version_id
-        .rules()
-        .ok_or_else(|| "unknown_room_version".to_string())?;
+    let rules = parse_room_version(room_version)?;
 
     ruma_signatures::hash_and_sign_event(&entity_id, &key_pair, &mut object, &rules.redaction)
         .map_err(|e| e.to_string())?;
@@ -95,10 +101,7 @@ fn hash_and_sign_event<'a>(
 fn reference_hash<'a>(room_version: String, json: Binary<'a>) -> Result<String, String> {
     let object = parse_json(json.as_slice())?;
 
-    let room_version_id = RoomVersionId::try_from(room_version).map_err(|e| e.to_string())?;
-    let rules = room_version_id
-        .rules()
-        .ok_or_else(|| "unknown_room_version".to_string())?;
+    let rules = parse_room_version(room_version)?;
 
     ruma_signatures::reference_hash(&object, &rules).map_err(|e| e.to_string())
 }
@@ -110,10 +113,7 @@ fn required_server_signatures_to_verify_event<'a>(
 ) -> Result<Vec<String>, String> {
     let object = parse_json(json.as_slice())?;
 
-    let room_version_id = RoomVersionId::try_from(room_version).map_err(|e| e.to_string())?;
-    let rules = room_version_id
-        .rules()
-        .ok_or_else(|| "unknown_room_version".to_string())?;
+    let rules = parse_room_version(room_version)?;
 
     ruma_signatures::required_server_signatures_to_verify_event(&object, &rules.signatures)
         .map(|result| result.into_iter().map(String::from).collect())
@@ -132,10 +132,7 @@ fn sign_event<'a>(
 
     let key_pair = parse_key_pair(key_pair.as_slice(), key_version)?;
 
-    let room_version_id = RoomVersionId::try_from(room_version).map_err(|e| e.to_string())?;
-    let rules = room_version_id
-        .rules()
-        .ok_or_else(|| "unknown_room_version".to_string())?;
+    let rules = parse_room_version(room_version)?;
 
     ruma_signatures::sign_event(&entity_id, &key_pair, &mut object, &rules.redaction)
         .map_err(|e| e.to_string())?;
@@ -180,10 +177,7 @@ fn verify_event<'a>(
 
     let public_key_map = parse_public_keys(public_keys)?;
 
-    let room_version_id = RoomVersionId::try_from(room_version).map_err(|e| e.to_string())?;
-    let rules = room_version_id
-        .rules()
-        .ok_or_else(|| "unknown_room_version".to_string())?;
+    let rules = parse_room_version(room_version)?;
 
     ruma_signatures::verify_event(&public_key_map, &object, &rules)
         .map(RumaVerified::from)
