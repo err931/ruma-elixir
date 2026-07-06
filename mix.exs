@@ -21,6 +21,7 @@ defmodule Rumax.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:rustler, "~> 0.38.0", runtime: false},
       {:jason, "~> 1.4"},
       {:jose, "~> 1.11"}
