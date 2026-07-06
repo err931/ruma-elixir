@@ -22,7 +22,9 @@ defmodule Rumax.Native.Ruma.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:rustler, "~> 0.38.0", runtime: false}
+      {:rustler, "~> 0.38.0", runtime: false},
+      {:jason, "~> 1.4"},
+      {:jose, "~> 1.11"}
     ]
   end
 end

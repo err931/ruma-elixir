@@ -8,4 +8,8 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+ruma-common = "0.19.0"
+ruma-signatures = "0.21.0"
 rustler = "0.38.0"
+serde = "1.0.228"
+serde_json = "1.0.150"
