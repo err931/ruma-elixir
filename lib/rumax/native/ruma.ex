@@ -129,7 +129,7 @@ defmodule Rumax.Native.Ruma do
   * `{:ok, canonical_json}` - A JSON string containing only the signatures field.
   * `{:error, reason}` - An error message describing the failure.
   """
-  def sign_json(_entity_id, _key_pair, _key_version, _json),
+  def sign_json_signatures(_entity_id, _key_pair, _key_version, _json),
     do: :erlang.nif_error(:nif_not_loaded)
 
   @doc """

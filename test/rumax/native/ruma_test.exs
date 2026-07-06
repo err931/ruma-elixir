@@ -71,12 +71,13 @@ defmodule Rumax.Native.RumaTest do
     end
   end
 
-  describe "sign_json" do
+  describe "sign_json_signatures" do
     test "returns only the signatures field" do
       {der, _public_key_b64} = generate_keypair()
       json = ~s({"a":1})
 
-      assert {:ok, signatures_json} = Ruma.sign_json(@server_name, der, @key_version, json)
+      assert {:ok, signatures_json} =
+               Ruma.sign_json_signatures(@server_name, der, @key_version, json)
 
       signatures = Jason.decode!(signatures_json)
       {_returned_key_version, _signature} = single_signature(signatures)
@@ -88,7 +89,9 @@ defmodule Rumax.Native.RumaTest do
       {der, public_key_b64} = generate_keypair()
       json = ~s({"a":1})
 
-      assert {:ok, signatures_json} = Ruma.sign_json(@server_name, der, @key_version, json)
+      assert {:ok, signatures_json} =
+               Ruma.sign_json_signatures(@server_name, der, @key_version, json)
+
       signatures = Jason.decode!(signatures_json)
       {returned_key_version, _signature} = single_signature(signatures)
 
@@ -109,7 +112,10 @@ defmodule Rumax.Native.RumaTest do
   describe "key decode errors" do
     test "returns {:error, reason} when DER private key is invalid" do
       json = ~s({"type":"m.test","content":{"body":"hi"}})
-      assert {:error, reason} = Ruma.sign_json(@server_name, <<1, 2, 3>>, @key_version, json)
+
+      assert {:error, reason} =
+               Ruma.sign_json_signatures(@server_name, <<1, 2, 3>>, @key_version, json)
+
       assert is_binary(reason)
       refute String.trim(reason) == ""
     end

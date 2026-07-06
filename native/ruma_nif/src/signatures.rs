@@ -140,7 +140,7 @@ fn sign_event<'a>(
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
-fn sign_json<'a>(
+fn sign_json_signatures<'a>(
     entity_id: String,
     key_pair: Binary<'a>,
     key_version: String,
