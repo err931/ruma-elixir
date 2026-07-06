@@ -1,7 +1,7 @@
 defmodule Rumax.Native.RumaTest do
   use ExUnit.Case, async: true
 
-  alias Rumax.Native.Ruma
+  alias Rumax.Ruma
 
   @server_name "example.com"
   @key_version "1"
