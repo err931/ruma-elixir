@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use ruma_common::{canonical_json::CanonicalJsonObject, serde::Base64, RoomVersionId};
-use ruma_signatures::{PublicKeyMap, PublicKeySet, Verified};
+use ruma_signatures::{Ed25519KeyPair, PublicKeyMap, PublicKeySet, Verified};
 use rustler::Binary;
 
 #[derive(rustler::NifUnitEnum)]
@@ -25,6 +25,10 @@ fn parse_json(json: &[u8]) -> Result<CanonicalJsonObject, String> {
 
 fn to_json_string<T: serde::Serialize>(object: &T) -> Result<String, String> {
     serde_json::to_string(object).map_err(|e| e.to_string())
+}
+
+fn parse_key_pair(der: &[u8], key_version: String) -> Result<Ed25519KeyPair, String> {
+    Ed25519KeyPair::from_der(der, key_version).map_err(|e| e.to_string())
 }
 
 fn parse_public_keys(
@@ -74,8 +78,7 @@ fn hash_and_sign_event<'a>(
 ) -> Result<String, String> {
     let mut object = parse_json(json.as_slice())?;
 
-    let key_pair = ruma_signatures::Ed25519KeyPair::from_der(key_pair.as_slice(), key_version)
-        .map_err(|e| e.to_string())?;
+    let key_pair = parse_key_pair(key_pair.as_slice(), key_version)?;
 
     let room_version_id = RoomVersionId::try_from(room_version).map_err(|e| e.to_string())?;
     let rules = room_version_id
@@ -127,8 +130,7 @@ fn sign_event<'a>(
 ) -> Result<String, String> {
     let mut object = parse_json(json.as_slice())?;
 
-    let key_pair = ruma_signatures::Ed25519KeyPair::from_der(key_pair.as_slice(), key_version)
-        .map_err(|e| e.to_string())?;
+    let key_pair = parse_key_pair(key_pair.as_slice(), key_version)?;
 
     let room_version_id = RoomVersionId::try_from(room_version).map_err(|e| e.to_string())?;
     let rules = room_version_id
@@ -150,8 +152,7 @@ fn sign_json_signatures<'a>(
 ) -> Result<String, String> {
     let mut object = parse_json(json.as_slice())?;
 
-    let key_pair = ruma_signatures::Ed25519KeyPair::from_der(key_pair.as_slice(), key_version)
-        .map_err(|e| e.to_string())?;
+    let key_pair = parse_key_pair(key_pair.as_slice(), key_version)?;
 
     ruma_signatures::sign_json(&entity_id, &key_pair, &mut object).map_err(|e| e.to_string())?;
 
