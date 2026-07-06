@@ -2,12 +2,20 @@ use std::collections::HashMap;
 
 use ruma_common::{canonical_json::CanonicalJsonObject, serde::Base64, RoomVersionId};
 use ruma_signatures::{PublicKeyMap, PublicKeySet, Verified};
-use rustler::{Atom, Binary};
+use rustler::Binary;
 
-mod atoms {
-    rustler::atoms! {
-        all,
-        signatures_only,
+#[derive(rustler::NifUnitEnum)]
+pub enum RumaVerified {
+    All,
+    SignaturesOnly,
+}
+
+impl From<Verified> for RumaVerified {
+    fn from(verified: Verified) -> Self {
+        match verified {
+            Verified::All => Self::All,
+            Verified::Signatures => Self::SignaturesOnly,
+        }
     }
 }
 
@@ -175,7 +183,7 @@ fn verify_event<'a>(
     public_keys: HashMap<String, HashMap<String, String>>,
     room_version: String,
     json: Binary<'a>,
-) -> Result<Atom, String> {
+) -> Result<RumaVerified, String> {
     let object = parse_json(json.as_slice())?;
 
     let public_key_map = parse_public_keys(public_keys)?;
@@ -185,11 +193,9 @@ fn verify_event<'a>(
         .rules()
         .ok_or_else(|| "unknown_room_version".to_string())?;
 
-    match ruma_signatures::verify_event(&public_key_map, &object, &rules) {
-        Ok(Verified::All) => Ok(atoms::all()),
-        Ok(Verified::Signatures) => Ok(atoms::signatures_only()),
-        Err(e) => Err(e.to_string()),
-    }
+    ruma_signatures::verify_event(&public_key_map, &object, &rules)
+        .map(RumaVerified::from)
+        .map_err(|e| e.to_string())
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
