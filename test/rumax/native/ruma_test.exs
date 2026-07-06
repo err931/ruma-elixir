@@ -5,6 +5,7 @@ defmodule Rumax.Native.RumaTest do
 
   @server_name "example.com"
   @key_version "1"
+  @room_version "12"
 
   defp generate_keypair do
     jwk = JOSE.JWK.generate_key({:okp, :Ed25519})
@@ -115,10 +116,22 @@ defmodule Rumax.Native.RumaTest do
 
     test "event signing functions return {:error, reason} when DER private key is invalid" do
       assert {:error, reason_1} =
-               Ruma.sign_event(@server_name, <<1, 2, 3>>, @key_version, event_json())
+               Ruma.sign_event(
+                 @server_name,
+                 <<1, 2, 3>>,
+                 @key_version,
+                 @room_version,
+                 event_json()
+               )
 
       assert {:error, reason_2} =
-               Ruma.hash_and_sign_event(@server_name, <<1, 2, 3>>, @key_version, event_json())
+               Ruma.hash_and_sign_event(
+                 @server_name,
+                 <<1, 2, 3>>,
+                 @key_version,
+                 @room_version,
+                 event_json()
+               )
 
       assert is_binary(reason_1)
       assert is_binary(reason_2)
@@ -142,7 +155,13 @@ defmodule Rumax.Native.RumaTest do
       {der, _public_key_b64} = generate_keypair()
 
       assert {:ok, signed_event_json} =
-               Ruma.hash_and_sign_event(@server_name, der, @key_version, event_json())
+               Ruma.hash_and_sign_event(
+                 @server_name,
+                 der,
+                 @key_version,
+                 @room_version,
+                 event_json()
+               )
 
       signed_event = Jason.decode!(signed_event_json)
 
@@ -151,7 +170,7 @@ defmodule Rumax.Native.RumaTest do
 
       public_keys = %{@server_name => %{returned_key_version => "lorem-ipsum"}}
 
-      assert {:error, reason} = Ruma.verify_event(public_keys, signed_event_json)
+      assert {:error, reason} = Ruma.verify_event(public_keys, @room_version, signed_event_json)
       assert is_binary(reason)
       refute String.trim(reason) == ""
     end
@@ -184,7 +203,7 @@ defmodule Rumax.Native.RumaTest do
       {der, _public_key_b64} = generate_keypair()
 
       assert {:ok, signed_event_json} =
-               Ruma.sign_event(@server_name, der, @key_version, event_json())
+               Ruma.sign_event(@server_name, der, @key_version, @room_version, event_json())
 
       signed_event = Jason.decode!(signed_event_json)
 
@@ -198,7 +217,13 @@ defmodule Rumax.Native.RumaTest do
       {der, _public_key_b64} = generate_keypair()
 
       assert {:ok, signed_event_json} =
-               Ruma.hash_and_sign_event(@server_name, der, @key_version, event_json())
+               Ruma.hash_and_sign_event(
+                 @server_name,
+                 der,
+                 @key_version,
+                 @room_version,
+                 event_json()
+               )
 
       signed_event = Jason.decode!(signed_event_json)
 
@@ -212,7 +237,13 @@ defmodule Rumax.Native.RumaTest do
       {der, public_key_b64} = generate_keypair()
 
       assert {:ok, signed_event_json} =
-               Ruma.hash_and_sign_event(@server_name, der, @key_version, event_json())
+               Ruma.hash_and_sign_event(
+                 @server_name,
+                 der,
+                 @key_version,
+                 @room_version,
+                 event_json()
+               )
 
       signed_event = Jason.decode!(signed_event_json)
 
@@ -222,6 +253,7 @@ defmodule Rumax.Native.RumaTest do
       assert {:ok, :all} =
                Ruma.verify_event(
                  %{@server_name => %{returned_key_version => public_key_b64}},
+                 @room_version,
                  signed_event_json
                )
     end
@@ -229,7 +261,8 @@ defmodule Rumax.Native.RumaTest do
 
   describe "required_server_signatures_to_verify_event" do
     test "returns a list of strings" do
-      assert {:ok, servers} = Ruma.required_server_signatures_to_verify_event(event_json())
+      assert {:ok, servers} =
+               Ruma.required_server_signatures_to_verify_event(@room_version, event_json())
 
       assert is_list(servers)
       assert Enum.all?(servers, &is_binary/1)
@@ -241,7 +274,13 @@ defmodule Rumax.Native.RumaTest do
       {der, public_key_b64} = generate_keypair()
 
       assert {:ok, signed_event_json} =
-               Ruma.hash_and_sign_event(@server_name, der, @key_version, event_json())
+               Ruma.hash_and_sign_event(
+                 @server_name,
+                 der,
+                 @key_version,
+                 @room_version,
+                 event_json()
+               )
 
       tampered_json =
         signed_event_json
@@ -255,6 +294,7 @@ defmodule Rumax.Native.RumaTest do
       assert {:ok, :signatures_only} =
                Ruma.verify_event(
                  %{@server_name => %{returned_key_version => public_key_b64}},
+                 @room_version,
                  tampered_json
                )
     end
@@ -264,7 +304,7 @@ defmodule Rumax.Native.RumaTest do
     test "returns a base64 string without padding" do
       assert {:ok, hashed_json} = Ruma.add_content_hash_to_event(event_json())
 
-      assert {:ok, hash} = Ruma.reference_hash(hashed_json)
+      assert {:ok, hash} = Ruma.reference_hash(@room_version, hashed_json)
 
       assert is_binary(hash)
       refute String.contains?(hash, "=")
@@ -273,8 +313,8 @@ defmodule Rumax.Native.RumaTest do
     test "returns the same hash for the same event" do
       {:ok, hashed_json} = Ruma.add_content_hash_to_event(event_json())
 
-      assert {:ok, hash1} = Ruma.reference_hash(hashed_json)
-      assert {:ok, hash2} = Ruma.reference_hash(hashed_json)
+      assert {:ok, hash1} = Ruma.reference_hash(@room_version, hashed_json)
+      assert {:ok, hash2} = Ruma.reference_hash(@room_version, hashed_json)
 
       assert hash1 == hash2
     end
@@ -290,19 +330,27 @@ defmodule Rumax.Native.RumaTest do
 
       {:ok, hashed_json_b} = Ruma.add_content_hash_to_event(json_b)
 
-      assert {:ok, hash_a} = Ruma.reference_hash(hashed_json_a)
-      assert {:ok, hash_b} = Ruma.reference_hash(hashed_json_b)
+      assert {:ok, hash_a} = Ruma.reference_hash(@room_version, hashed_json_a)
+      assert {:ok, hash_b} = Ruma.reference_hash(@room_version, hashed_json_b)
 
       refute hash_a == hash_b
     end
 
     test "produces a different (protocol-incomplete) hash when content hash step is skipped" do
       {:ok, hashed_json} = Ruma.add_content_hash_to_event(event_json())
-      {:ok, hash_with_content_hash} = Ruma.reference_hash(hashed_json)
+      {:ok, hash_with_content_hash} = Ruma.reference_hash(@room_version, hashed_json)
 
-      {:ok, hash_without_content_hash} = Ruma.reference_hash(event_json())
+      {:ok, hash_without_content_hash} = Ruma.reference_hash(@room_version, event_json())
 
       refute hash_with_content_hash == hash_without_content_hash
+    end
+
+    test "returns {:error, reason} when room version is invalid" do
+      assert {:error, reason} =
+               Ruma.reference_hash("invalid", event_json())
+
+      assert is_binary(reason)
+      refute String.trim(reason) == ""
     end
   end
 end

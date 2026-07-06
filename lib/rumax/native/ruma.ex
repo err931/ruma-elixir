@@ -46,7 +46,8 @@ defmodule Rumax.Native.Ruma do
 
   * `entity_id` - The identifier of the entity creating the signature. Generally this means a homeserver, e.g. “example.com”.
   * `key_pair` - The DER-encoded Ed25519 private key as a binary.
-  * `key_id` - The ID of the signing key.
+  * `key_version` - The ID of the signing key.
+  * `room_version` - The Matrix room version identifier.
   * `json` - A JSON string representing the event.
 
   ## Returns
@@ -54,7 +55,7 @@ defmodule Rumax.Native.Ruma do
   * `{:ok, canonical_json}` - A JSON string representing the updated event.
   * `{:error, reason}` - An error message describing the failure.
   """
-  def hash_and_sign_event(_entity_id, _key_pair, _key_id, _json),
+  def hash_and_sign_event(_entity_id, _key_pair, _key_version, _room_version, _json),
     do: :erlang.nif_error(:nif_not_loaded)
 
   @doc """
@@ -64,6 +65,7 @@ defmodule Rumax.Native.Ruma do
 
   ## Parameters
 
+  * `room_version` - The Matrix room version identifier.
   * `json` - A JSON string.
 
   ## Returns
@@ -71,13 +73,14 @@ defmodule Rumax.Native.Ruma do
   * `{:ok, base64}` - A base64-encoded string.
   * `{:error, reason}` - An error message describing the failure.
   """
-  def reference_hash(_json), do: :erlang.nif_error(:nif_not_loaded)
+  def reference_hash(_room_version, _json), do: :erlang.nif_error(:nif_not_loaded)
 
   @doc """
   Get the list of servers whose signature must be checked to verify the given event.
 
   ## Parameters
 
+  * `room_version` - The Matrix room version identifier.
   * `json` - A JSON string.
 
   ## Returns
@@ -85,7 +88,8 @@ defmodule Rumax.Native.Ruma do
   * `{:ok, server_names}` - A list of server names whose signatures must be verified.
   * `{:error, reason}` - An error message describing the failure.
   """
-  def required_server_signatures_to_verify_event(_json), do: :erlang.nif_error(:nif_not_loaded)
+  def required_server_signatures_to_verify_event(_room_version, _json),
+    do: :erlang.nif_error(:nif_not_loaded)
 
   @doc """
   Compute and add the signature of the given event.
@@ -96,7 +100,8 @@ defmodule Rumax.Native.Ruma do
 
   * `entity_id` - The identifier of the entity creating the signature. Generally this means a homeserver, e.g. “example.com”.
   * `key_pair` - The DER-encoded Ed25519 private key as a binary.
-  * `key_id` - The ID of the signing key.
+  * `key_version` - The ID of the signing key.
+  * `room_version` - The Matrix room version identifier.
   * `json` - A JSON string representing the event.
 
   ## Returns
@@ -104,7 +109,8 @@ defmodule Rumax.Native.Ruma do
   * `{:ok, canonical_json}` - A JSON string representing the signed event.
   * `{:error, reason}` - An error message describing the failure.
   """
-  def sign_event(_entity_id, _key_pair, _key_id, _json), do: :erlang.nif_error(:nif_not_loaded)
+  def sign_event(_entity_id, _key_pair, _key_version, _room_version, _json),
+    do: :erlang.nif_error(:nif_not_loaded)
 
   @doc """
   Signs an arbitrary JSON object and adds the signature to an object under the key signatures.
@@ -115,7 +121,7 @@ defmodule Rumax.Native.Ruma do
 
   * `entity_id` - The identifier of the entity creating the signature. Generally this means a homeserver, e.g. “example.com”.
   * `key_pair` - The DER-encoded Ed25519 private key as a binary.
-  * `key_id` - The ID of the signing key.
+  * `key_version` - The ID of the signing key.
   * `json` - A JSON string representing the object to sign.
 
   ## Returns
@@ -123,7 +129,8 @@ defmodule Rumax.Native.Ruma do
   * `{:ok, canonical_json}` - A JSON string containing only the signatures field.
   * `{:error, reason}` - An error message describing the failure.
   """
-  def sign_json(_entity_id, _key_pair, _key_id, _json), do: :erlang.nif_error(:nif_not_loaded)
+  def sign_json(_entity_id, _key_pair, _key_version, _json),
+    do: :erlang.nif_error(:nif_not_loaded)
 
   @doc """
   Serialize the given JSON object to prepare it for signing.
@@ -159,6 +166,7 @@ defmodule Rumax.Native.Ruma do
   }
   ```
 
+  * `room_version` - The Matrix room version identifier.
   * `json` - A JSON string.
 
   ## Returns
@@ -167,7 +175,7 @@ defmodule Rumax.Native.Ruma do
   * `{:ok, :signatures_only}` - All signatures are valid but the content hashes don't match. This may indicate a redacted event.
   * `{:error, reason}` - An error message describing the failure.
   """
-  def verify_event(_public_keys, _json), do: :erlang.nif_error(:nif_not_loaded)
+  def verify_event(_public_keys, _room_version, _json), do: :erlang.nif_error(:nif_not_loaded)
 
   @doc """
   Uses a set of public keys to verify a signed JSON object.

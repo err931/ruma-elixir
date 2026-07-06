@@ -61,6 +61,7 @@ fn hash_and_sign_event<'a>(
     entity_id: String,
     key_pair: Binary<'a>,
     key_version: String,
+    room_version: String,
     json: Binary<'a>,
 ) -> Result<String, String> {
     let mut object = parse_json(json.as_slice())?;
@@ -68,7 +69,8 @@ fn hash_and_sign_event<'a>(
     let key_pair = ruma_signatures::Ed25519KeyPair::from_der(key_pair.as_slice(), key_version)
         .map_err(|e| e.to_string())?;
 
-    let rules = RoomVersionId::V1
+    let room_version_id = RoomVersionId::try_from(room_version).map_err(|e| e.to_string())?;
+    let rules = room_version_id
         .rules()
         .ok_or_else(|| "unknown_room_version".to_string())?;
 
@@ -79,10 +81,11 @@ fn hash_and_sign_event<'a>(
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
-fn reference_hash<'a>(json: Binary<'a>) -> Result<String, String> {
+fn reference_hash<'a>(room_version: String, json: Binary<'a>) -> Result<String, String> {
     let object = parse_json(json.as_slice())?;
 
-    let rules = RoomVersionId::V1
+    let room_version_id = RoomVersionId::try_from(room_version).map_err(|e| e.to_string())?;
+    let rules = room_version_id
         .rules()
         .ok_or_else(|| "unknown_room_version".to_string())?;
 
@@ -92,10 +95,14 @@ fn reference_hash<'a>(json: Binary<'a>) -> Result<String, String> {
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
-fn required_server_signatures_to_verify_event<'a>(json: Binary<'a>) -> Result<Vec<String>, String> {
+fn required_server_signatures_to_verify_event<'a>(
+    room_version: String,
+    json: Binary<'a>,
+) -> Result<Vec<String>, String> {
     let object = parse_json(json.as_slice())?;
 
-    let rules = RoomVersionId::V1
+    let room_version_id = RoomVersionId::try_from(room_version).map_err(|e| e.to_string())?;
+    let rules = room_version_id
         .rules()
         .ok_or_else(|| "unknown_room_version".to_string())?;
 
@@ -113,6 +120,7 @@ fn sign_event<'a>(
     entity_id: String,
     key_pair: Binary<'a>,
     key_version: String,
+    room_version: String,
     json: Binary<'a>,
 ) -> Result<String, String> {
     let mut object = parse_json(json.as_slice())?;
@@ -120,7 +128,8 @@ fn sign_event<'a>(
     let key_pair = ruma_signatures::Ed25519KeyPair::from_der(key_pair.as_slice(), key_version)
         .map_err(|e| e.to_string())?;
 
-    let rules = RoomVersionId::V1
+    let room_version_id = RoomVersionId::try_from(room_version).map_err(|e| e.to_string())?;
+    let rules = room_version_id
         .rules()
         .ok_or_else(|| "unknown_room_version".to_string())?;
 
@@ -164,13 +173,15 @@ fn to_canonical_json_string_for_signing<'a>(json: Binary<'a>) -> Result<String, 
 #[rustler::nif(schedule = "DirtyCpu")]
 fn verify_event<'a>(
     public_keys: HashMap<String, HashMap<String, String>>,
+    room_version: String,
     json: Binary<'a>,
 ) -> Result<Atom, String> {
     let object = parse_json(json.as_slice())?;
 
     let public_key_map = parse_public_keys(public_keys)?;
 
-    let rules = RoomVersionId::V1
+    let room_version_id = RoomVersionId::try_from(room_version).map_err(|e| e.to_string())?;
+    let rules = room_version_id
         .rules()
         .ok_or_else(|| "unknown_room_version".to_string())?;
 
