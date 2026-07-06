@@ -59,9 +59,9 @@ fn add_content_hash_to_event<'a>(json: Binary<'a>) -> Result<String, String> {
 fn content_hash<'a>(json: Binary<'a>) -> Result<String, String> {
     let object = parse_json(json.as_slice())?;
 
-    let hash = ruma_signatures::content_hash(&object).map_err(|e| e.to_string())?;
-
-    Ok(hash.encode())
+    ruma_signatures::content_hash(&object)
+        .map(|hash| hash.encode())
+        .map_err(|e| e.to_string())
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
@@ -97,9 +97,7 @@ fn reference_hash<'a>(room_version: String, json: Binary<'a>) -> Result<String, 
         .rules()
         .ok_or_else(|| "unknown_room_version".to_string())?;
 
-    let hash = ruma_signatures::reference_hash(&object, &rules).map_err(|e| e.to_string())?;
-
-    Ok(hash)
+    ruma_signatures::reference_hash(&object, &rules).map_err(|e| e.to_string())
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
@@ -114,13 +112,9 @@ fn required_server_signatures_to_verify_event<'a>(
         .rules()
         .ok_or_else(|| "unknown_room_version".to_string())?;
 
-    let result =
-        ruma_signatures::required_server_signatures_to_verify_event(&object, &rules.signatures)
-            .map_err(|e| e.to_string())?;
-
-    let server_list = result.into_iter().map(String::from).collect();
-
-    Ok(server_list)
+    ruma_signatures::required_server_signatures_to_verify_event(&object, &rules.signatures)
+        .map(|result| result.into_iter().map(String::from).collect())
+        .map_err(|e| e.to_string())
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
@@ -172,10 +166,7 @@ fn sign_json_signatures<'a>(
 fn to_canonical_json_string_for_signing<'a>(json: Binary<'a>) -> Result<String, String> {
     let object = parse_json(json.as_slice())?;
 
-    let canonical = ruma_signatures::to_canonical_json_string_for_signing(&object)
-        .map_err(|e| e.to_string())?;
-
-    Ok(canonical)
+    ruma_signatures::to_canonical_json_string_for_signing(&object).map_err(|e| e.to_string())
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
