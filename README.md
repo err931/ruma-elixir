@@ -1,4 +1,4 @@
-# Rumax.Native.Ruma
+# Rumax
 
 **TODO: Add description**
 

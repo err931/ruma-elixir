@@ -1,4 +1,4 @@
-defmodule Rumax.Native.Ruma.MixProject do
+defmodule Rumax.MixProject do
   use Mix.Project
 
   def project do
@@ -14,8 +14,7 @@ defmodule Rumax.Native.Ruma.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger],
-      mod: {Rumax.Native.Ruma.Application, []}
+      extra_applications: [:logger]
     ]
   end
 
