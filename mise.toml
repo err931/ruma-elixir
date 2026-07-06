@@ -1,0 +1,15 @@
+[settings]
+lockfile = true
+lockfile_platforms = ["linux-x64", "macos-arm64"]
+
+[tools]
+elixir = "latest"
+erlang = "latest"
+rust = "latest"
+lefthook = { version = "latest", postinstall = "lefthook install" }
+
+[deps.hex]
+auto = true
+sources = ["mix.exs", "mix.lock"]
+outputs = ["deps/"]
+run = "mix deps.get"
