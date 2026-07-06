@@ -45,15 +45,15 @@ defmodule Rumax.Native.RumaTest do
   end
 
   describe "JSON decode errors" do
-    test "returns {:error, reason} when JSON is invalid" do
-      assert {:error, reason} = Ruma.content_hash("{invalid}")
-      assert is_binary(reason)
-      refute String.trim(reason) == ""
+    test "returns bad_json for malformed JSON" do
+      assert {:error, {:bad_json, %{message: message}}} = Ruma.content_hash("{invalid}")
+      assert is_binary(message)
+      refute String.trim(message) == ""
     end
   end
 
   describe "content_hash" do
-    test "returns an unpadded base64 string" do
+    test "returns an unpadded base64 content hash" do
       assert {:ok, hash} = Ruma.content_hash(event_json())
 
       assert is_binary(hash)
@@ -64,7 +64,7 @@ defmodule Rumax.Native.RumaTest do
   end
 
   describe "canonical json" do
-    test "excludes signatures and unsigned and is stable" do
+    test "canonicalizes JSON for signing without signatures and unsigned fields" do
       json = ~s({"b":2,"unsigned":{"x":1},"a":1,"signatures":{"foo":"bar"}})
       assert {:ok, canonical} = Ruma.to_canonical_json_string_for_signing(json)
       assert canonical == ~s({"a":1,"b":2})
@@ -72,7 +72,7 @@ defmodule Rumax.Native.RumaTest do
   end
 
   describe "sign_json_signatures" do
-    test "returns only the signatures field" do
+    test "signs JSON and returns the generated signatures" do
       {der, _public_key_b64} = generate_keypair()
       json = ~s({"a":1})
 
@@ -85,7 +85,7 @@ defmodule Rumax.Native.RumaTest do
       refute Map.has_key?(signatures, "signatures")
     end
 
-    test "signed JSON can be verified by verify_json" do
+    test "verifies JSON signed with the matching public key" do
       {der, public_key_b64} = generate_keypair()
       json = ~s({"a":1})
 
@@ -110,54 +110,39 @@ defmodule Rumax.Native.RumaTest do
   end
 
   describe "key decode errors" do
-    test "returns {:error, reason} when DER private key is invalid" do
+    test "returns invalid_signing_key for an invalid private key" do
       json = ~s({"type":"m.test","content":{"body":"hi"}})
 
-      assert {:error, reason} =
+      assert {:error, {:invalid_signing_key, %{message: message}}} =
                Ruma.sign_json_signatures(@server_name, <<1, 2, 3>>, @key_version, json)
 
-      assert is_binary(reason)
-      refute String.trim(reason) == ""
-    end
-
-    test "event signing functions return {:error, reason} when DER private key is invalid" do
-      assert {:error, reason_1} =
-               Ruma.sign_event(
-                 @server_name,
-                 <<1, 2, 3>>,
-                 @key_version,
-                 @room_version,
-                 event_json()
-               )
-
-      assert {:error, reason_2} =
-               Ruma.hash_and_sign_event(
-                 @server_name,
-                 <<1, 2, 3>>,
-                 @key_version,
-                 @room_version,
-                 event_json()
-               )
-
-      assert is_binary(reason_1)
-      assert is_binary(reason_2)
-      refute String.trim(reason_1) == ""
-      refute String.trim(reason_2) == ""
+      assert is_binary(message)
+      refute String.trim(message) == ""
     end
   end
 
   describe "public key decode errors" do
-    test "returns {:error, reason} when public key base64 is invalid" do
+    test "returns refused for an invalid public key" do
       json = ~s({"signatures":{"example.com":{"ed25519:1":"abc"}}})
 
       public_keys = %{@server_name => %{@key_version => "lorem-ipsum"}}
 
-      assert {:error, reason} = Ruma.verify_json(public_keys, json)
-      assert is_binary(reason)
-      refute String.trim(reason) == ""
+      assert {:error, {:refused, %{message: message}}} = Ruma.verify_json(public_keys, json)
+      assert is_binary(message)
+      refute String.trim(message) == ""
     end
 
-    test "verify_event returns {:error, reason} when public key base64 is invalid" do
+    test "returns bad_json for an invalid signatures structure" do
+      json = ~s({"signatures":[]})
+
+      assert {:error, {:bad_json, %{message: message}}} =
+               Ruma.verify_json(%{@server_name => %{}}, json)
+
+      assert is_binary(message)
+      refute String.trim(message) == ""
+    end
+
+    test "returns refused when event verification uses an invalid public key" do
       {der, _public_key_b64} = generate_keypair()
 
       assert {:ok, signed_event_json} =
@@ -176,20 +161,22 @@ defmodule Rumax.Native.RumaTest do
 
       public_keys = %{@server_name => %{returned_key_version => "lorem-ipsum"}}
 
-      assert {:error, reason} = Ruma.verify_event(public_keys, @room_version, signed_event_json)
-      assert is_binary(reason)
-      refute String.trim(reason) == ""
+      assert {:error, {:refused, %{message: message}}} =
+               Ruma.verify_event(public_keys, @room_version, signed_event_json)
+
+      assert is_binary(message)
+      refute String.trim(message) == ""
     end
   end
 
   describe "event hashing" do
-    test "adds hashes.sha256" do
+    test "adds a SHA-256 content hash to an event" do
       assert {:ok, updated} = Ruma.add_content_hash_to_event(event_json())
       decoded = Jason.decode!(updated)
       assert get_in(decoded, ["hashes", "sha256"])
     end
 
-    test "overwrites hashes.sha256 and preserves other hashes" do
+    test "replaces the SHA-256 content hash while preserving other hashes" do
       json =
         event_json()
         |> Jason.decode!()
@@ -205,7 +192,7 @@ defmodule Rumax.Native.RumaTest do
   end
 
   describe "event signing and verification" do
-    test "sign_event adds signatures without adding hashes" do
+    test "signs an event without adding a content hash" do
       {der, _public_key_b64} = generate_keypair()
 
       assert {:ok, signed_event_json} =
@@ -219,7 +206,7 @@ defmodule Rumax.Native.RumaTest do
       refute Map.has_key?(signed_event, "hashes")
     end
 
-    test "hash_and_sign_event adds hashes and signatures" do
+    test "adds a content hash and signature to an event" do
       {der, _public_key_b64} = generate_keypair()
 
       assert {:ok, signed_event_json} =
@@ -239,7 +226,7 @@ defmodule Rumax.Native.RumaTest do
         single_signature(Map.fetch!(signed_event, "signatures"))
     end
 
-    test "verify_event returns {:ok, :all} for a signed event with a valid content hash" do
+    test "fully verifies a signed event with a valid content hash" do
       {der, public_key_b64} = generate_keypair()
 
       assert {:ok, signed_event_json} =
@@ -263,10 +250,46 @@ defmodule Rumax.Native.RumaTest do
                  signed_event_json
                )
     end
+
+    test "returns refused when signature verification fails" do
+      {der, public_key_b64} = generate_keypair()
+
+      assert {:ok, signed_event_json} =
+               Ruma.hash_and_sign_event(
+                 @server_name,
+                 der,
+                 @key_version,
+                 @room_version,
+                 event_json()
+               )
+
+      signed_event = Jason.decode!(signed_event_json)
+
+      {returned_key_version, signature} =
+        single_signature(Map.fetch!(signed_event, "signatures"))
+
+      tampered_event_json =
+        signed_event
+        |> put_in(
+          ["signatures", @server_name, returned_key_version],
+          String.reverse(signature)
+        )
+        |> Jason.encode!()
+
+      assert {:error, {:refused, %{message: message}}} =
+               Ruma.verify_event(
+                 %{@server_name => %{returned_key_version => public_key_b64}},
+                 @room_version,
+                 tampered_event_json
+               )
+
+      assert is_binary(message)
+      refute String.trim(message) == ""
+    end
   end
 
   describe "required_server_signatures_to_verify_event" do
-    test "returns a list of strings" do
+    test "returns the servers whose signatures are required" do
       assert {:ok, servers} =
                Ruma.required_server_signatures_to_verify_event(@room_version, event_json())
 
@@ -276,7 +299,7 @@ defmodule Rumax.Native.RumaTest do
   end
 
   describe "verify_event signatures_only" do
-    test "returns {:ok, :signatures_only} when content hash does not match" do
+    test "verifies only signatures when the content hash does not match" do
       {der, public_key_b64} = generate_keypair()
 
       assert {:ok, signed_event_json} =
@@ -307,7 +330,7 @@ defmodule Rumax.Native.RumaTest do
   end
 
   describe "reference_hash" do
-    test "returns a base64 string without padding" do
+    test "returns an unpadded base64 reference hash" do
       assert {:ok, hashed_json} = Ruma.add_content_hash_to_event(event_json())
 
       assert {:ok, hash} = Ruma.reference_hash(@room_version, hashed_json)
@@ -316,7 +339,7 @@ defmodule Rumax.Native.RumaTest do
       refute String.contains?(hash, "=")
     end
 
-    test "returns the same hash for the same event" do
+    test "returns the same reference hash for the same event" do
       {:ok, hashed_json} = Ruma.add_content_hash_to_event(event_json())
 
       assert {:ok, hash1} = Ruma.reference_hash(@room_version, hashed_json)
@@ -325,7 +348,7 @@ defmodule Rumax.Native.RumaTest do
       assert hash1 == hash2
     end
 
-    test "returns different hash when content differs" do
+    test "returns a different reference hash when event content differs" do
       {:ok, hashed_json_a} = Ruma.add_content_hash_to_event(event_json())
 
       json_b =
@@ -342,7 +365,7 @@ defmodule Rumax.Native.RumaTest do
       refute hash_a == hash_b
     end
 
-    test "produces a different (protocol-incomplete) hash when content hash step is skipped" do
+    test "changes the reference hash when content hashing is skipped" do
       {:ok, hashed_json} = Ruma.add_content_hash_to_event(event_json())
       {:ok, hash_with_content_hash} = Ruma.reference_hash(@room_version, hashed_json)
 
@@ -351,12 +374,12 @@ defmodule Rumax.Native.RumaTest do
       refute hash_with_content_hash == hash_without_content_hash
     end
 
-    test "returns {:error, reason} when room version is invalid" do
-      assert {:error, reason} =
+    test "returns internal for an unsupported room version" do
+      assert {:error, {:internal, %{message: message}}} =
                Ruma.reference_hash("invalid", event_json())
 
-      assert is_binary(reason)
-      refute String.trim(reason) == ""
+      assert is_binary(message)
+      refute String.trim(message) == ""
     end
   end
 end
