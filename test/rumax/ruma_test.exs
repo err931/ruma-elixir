@@ -101,7 +101,7 @@ defmodule Rumax.Native.RumaTest do
         |> Map.put("signatures", signatures)
         |> Jason.encode!()
 
-      assert {:ok, {}} =
+      assert :ok =
                Ruma.verify_json(
                  %{@server_name => %{returned_key_version => public_key_b64}},
                  signed_json

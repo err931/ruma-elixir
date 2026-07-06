@@ -263,7 +263,5 @@ fn verify_json<'a>(
 
     let public_key_map = parse_public_keys(public_keys)?;
 
-    ruma_signatures::verify_json(&public_key_map, &object)?;
-
-    Ok(())
+    Ok(ruma_signatures::verify_json(&public_key_map, &object)?)
 }

@@ -27,5 +27,10 @@ defmodule Rumax.Ruma do
 
   defdelegate verify_event(public_keys, room_version, json), to: Ruma
 
-  defdelegate verify_json(public_keys, json), to: Ruma
+  def verify_json(public_keys, json) do
+    case Ruma.verify_json(public_keys, json) do
+      {:ok, _} -> :ok
+      {:error, _reason} = error -> error
+    end
+  end
 end
